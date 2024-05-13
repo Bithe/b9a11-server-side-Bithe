@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
+const cookieParser = require('cookie-parser'); 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 //CONFIG
@@ -22,6 +23,7 @@ app.use(
 );
 
 app.use(express.json());
+app.use(cookieParser());
 
 // CONNECT TO DB
 
@@ -60,6 +62,7 @@ async function run() {
     // JWT GENERATE
     app.post("/jwt", async (req, res) => {
       const user = req.body;
+      console.log('dynamic tokn for user', user);
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "365d"
       });
