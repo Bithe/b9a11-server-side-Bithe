@@ -4,7 +4,7 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
-const cookieParser = require('cookie-parser'); 
+const cookieParser = require("cookie-parser");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 //CONFIG
@@ -15,15 +15,30 @@ const port = process.env.PORT || 5000;
 //Must remove "/" from your production URL
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-    ],
+    origin: ["http://localhost:5173"],
     credentials: true,
   })
 );
 
 app.use(express.json());
 app.use(cookieParser());
+// JWT MIDDLEWARE
+
+const verifyToken = async (req, res, next) => {
+  const token = req.cookies?.token;
+  console.log(token);
+  if (!token) {
+    return res.status(401).send({ message: "unauthorized access" });
+  }
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      console.log(err);
+      return res.status(401).send({ message: "unauthorized access" });
+    }
+    req.user = decoded;
+    next();
+  });
+};
 
 // CONNECT TO DB
 
@@ -60,21 +75,38 @@ async function run() {
       .collection("prodSwapRecommendation");
 
     // JWT GENERATE
+    // app.post("/jwt", async (req, res) => {
+    //   const user = req.body;
+    //   console.log("dynamic tokn for user", user);
+    //   const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+    //     expiresIn: "365d",
+    //   });
+
+    //   res.cookie("token", token, cookieOptions).send({ success: true });
+    // });
+
+    // app.post("/logout", async (req, res) => {
+    //   const user = req.body;
+    //   console.log("loogged out", user);
+    //   res.clearCookie("token", { maxAge: 0 }).send({ success: true });
+    // });
+
+    /////////
+
     app.post("/jwt", async (req, res) => {
       const user = req.body;
-      console.log('dynamic tokn for user', user);
+      console.log("I need a new jwt", user);
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "365d"
+        expiresIn: "365d",
       });
-
-      res.cookie('token', token, cookieOptions).send({success: true});
+      res
+        .cookie("token", token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+        })
+        .send({ success: true });
     });
-
-    app.post('/logout', async(req, res)=>{
-      const user = req.body;
-      console.log('loogged out', user)
-      res.clearCookie('token', {maxAge:0}).send({success:true})
-    })
 
     // -------------------------------------HOME
 
@@ -111,8 +143,14 @@ async function run() {
     // GET A SINGLE QUERY BY ID FOR QUERY DETAILS PAGE
 
     // GET THE QUERIES BY USER EMAIL FOR MY QUERIES PAGE FOR THAT USER ONLY
-    app.get("/my-queries/:email", async (req, res) => {
+    app.get("/my-queries/:email", verifyToken, async (req, res) => {
+      const tokenEmail = req.user.email;
+
       const email = req.params.email;
+
+      if (tokenEmail !== email) {
+        return res.status(403).send({ message: "Forbidden Access" });
+      }
       const query = { "addQueriesUserInfo.email": email };
       // const result = await queriesCollection.find(query).toArray();
       const result = await queriesCollection
