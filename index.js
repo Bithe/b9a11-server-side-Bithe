@@ -3,7 +3,7 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 //CONFIG
@@ -11,13 +11,15 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 //MIDDLEWARE
-// app.use(cors());
-const corsConfig = {
-  origin: "*",
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-};
-app.use(cors(corsConfig));
+//Must remove "/" from your production URL
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+    ],
+    credentials: true,
+  })
+);
 
 app.use(express.json());
 
@@ -34,6 +36,14 @@ const client = new MongoClient(uri, {
   },
 });
 
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+};
+//localhost:5000 and localhost:5173 are treated as same site.  so sameSite value must be strict in development server.  in production sameSite will be none
+// in development server secure will false .  in production secure will be true
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -47,17 +57,23 @@ async function run() {
       .db("prodSwapDb")
       .collection("prodSwapRecommendation");
 
-    
+    // JWT GENERATE
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "365d"
+      });
 
-      // JWT GENERATE
-      app.get('/jwt', async(req,res)=>{
-        const user = req.body;
-        const token = jwt.sign(user,)
-      })
-    
-    
-    
-      // -------------------------------------HOME
+      res.cookie('token', token, cookieOptions).send({success: true});
+    });
+
+    app.post('/logout', async(req, res)=>{
+      const user = req.body;
+      console.log('loogged out', user)
+      res.clearCookie('token', {maxAge:0}).send({success:true})
+    })
+
+    // -------------------------------------HOME
 
     // GET ALL THE POSTED QUERIES FOR HOME PAGE RECENT QUERIES
     app.get("/recent-queries", async (req, res) => {
