@@ -3,6 +3,7 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
+const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 //CONFIG
@@ -46,6 +47,16 @@ async function run() {
       .db("prodSwapDb")
       .collection("prodSwapRecommendation");
 
+    
+
+      // JWT GENERATE
+      app.get('/jwt', async(req,res)=>{
+        const user = req.body;
+        const token = jwt.sign(user,)
+      })
+    
+    
+    
       // -------------------------------------HOME
 
     // GET ALL THE POSTED QUERIES FOR HOME PAGE RECENT QUERIES
@@ -55,8 +66,6 @@ async function run() {
 
       res.send(reversedResult);
     });
-
-
 
     // --------------------------------------------------QUERIES
     // GET ALL QUERIES
@@ -99,14 +108,11 @@ async function run() {
       const id = req.params.id;
       console.log("updated id:", id);
       // const query = { _id: new ObjectId(id) };
-
       const result = await queriesCollection.findOne({ _id: new ObjectId(id) });
       console.log("update data:", result);
 
       res.send(result);
     });
-
-
 
     //--------------------------------------------------------- RECOMMENDATION
 
@@ -137,7 +143,6 @@ async function run() {
       res.send(result);
     });
 
-
     // ALL RECOMMENDATIONS FOR THAT QUERY
     app.get("/recommendations/:queryId", async (req, res) => {
       const queryId = req.params.queryId;
@@ -147,33 +152,28 @@ async function run() {
       res.send(result);
     });
 
-
-
     // ----------------------------  QUERY DELETE
 
     app.delete("/queries/:id", async (req, res) => {
-
       const id = req.params.id;
       console.log("Deleted id:", id);
-      const result = await queriesCollection.deleteOne({ _id: new ObjectId(id) });
+      const result = await queriesCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
       res.send(result);
     });
-
 
     // ----------------------------  RECOMMENDATION DELETE
     app.delete("/recommendation/:id", async (req, res) => {
-
       const id = req.params.id;
       console.log("Deleted id:", id);
-      const result = await recommendationCollection.deleteOne({ _id: new ObjectId(id) });
+      const result = await recommendationCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
       res.send(result);
     });
 
-
-
     // DELETE A QUERY FROM DB
-
-
 
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
