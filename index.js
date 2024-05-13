@@ -38,7 +38,7 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
 
-    // DB CREATE
+    //------------------------ DB CREATE
     const queriesCollection = client
       .db("prodSwapDb")
       .collection("prodSwapQueries");
@@ -46,6 +46,19 @@ async function run() {
       .db("prodSwapDb")
       .collection("prodSwapRecommendation");
 
+      // -------------------------------------HOME
+
+    // GET ALL THE POSTED QUERIES FOR HOME PAGE RECENT QUERIES
+    app.get("/recent-queries", async (req, res) => {
+      const result = await queriesCollection.find().toArray();
+      const reversedResult = result.reverse();
+
+      res.send(reversedResult);
+    });
+
+
+
+    // --------------------------------------------------QUERIES
     // GET ALL QUERIES
     app.get("/queries", async (req, res) => {
       console.log(req.params.email);
@@ -85,16 +98,17 @@ async function run() {
     app.get("/query/:id", async (req, res) => {
       const id = req.params.id;
       console.log("updated id:", id);
-      const query = { _id: new ObjectId(id) };
+      // const query = { _id: new ObjectId(id) };
 
-      console.log("updated qu:", query);
       const result = await queriesCollection.findOne({ _id: new ObjectId(id) });
       console.log("update data:", result);
 
       res.send(result);
     });
 
-    // RECOMMENDATION
+
+
+    //--------------------------------------------------------- RECOMMENDATION
 
     // POST THE RECOMMENDATION DATA TO DB
     app.post("/recommendation", async (req, res) => {
@@ -122,7 +136,44 @@ async function run() {
       const result = await recommendationCollection.find(query).toArray();
       res.send(result);
     });
-    
+
+
+    // ALL RECOMMENDATIONS FOR THAT QUERY
+    app.get("/recommendations/:queryId", async (req, res) => {
+      const queryId = req.params.queryId;
+
+      const query = { "queryPosterUserInf.queryId": queryId };
+      const result = await recommendationCollection.find(query).toArray();
+      res.send(result);
+    });
+
+
+
+    // ----------------------------  QUERY DELETE
+
+    app.delete("/queries/:id", async (req, res) => {
+
+      const id = req.params.id;
+      console.log("Deleted id:", id);
+      const result = await queriesCollection.deleteOne({ _id: new ObjectId(id) });
+      res.send(result);
+    });
+
+
+    // ----------------------------  RECOMMENDATION DELETE
+    app.delete("/recommendation/:id", async (req, res) => {
+
+      const id = req.params.id;
+      console.log("Deleted id:", id);
+      const result = await recommendationCollection.deleteOne({ _id: new ObjectId(id) });
+      res.send(result);
+    });
+
+
+
+    // DELETE A QUERY FROM DB
+
+
 
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
