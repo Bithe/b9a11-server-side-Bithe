@@ -15,7 +15,7 @@ const port = process.env.PORT || 5000;
 //Must remove "/" from your production URL
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: ["http://localhost:5173", "prodswap-hub.web.app", "prodswap-hub.firebaseapp.com"],
     credentials: true,
   })
 );
