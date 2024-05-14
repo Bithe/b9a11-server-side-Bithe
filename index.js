@@ -3,7 +3,7 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
-const jwt = require("jsonwebtoken");
+// const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
@@ -11,34 +11,33 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 const port = process.env.PORT || 5000;
 
-//MIDDLEWARE
-//Must remove "/" from your production URL
-app.use(
-  cors({
-    origin: ["http://localhost:5173", "prodswap-hub.web.app", "prodswap-hub.firebaseapp.com"],
-    credentials: true,
-  })
-);
+// //MIDDLEWARE
 
+const corsConfig = {
+  origin: '*',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
+  }
+  app.use(cors(corsConfig))
 app.use(express.json());
 app.use(cookieParser());
 // JWT MIDDLEWARE
 
-const verifyToken = async (req, res, next) => {
-  const token = req.cookies?.token;
-  console.log(token);
-  if (!token) {
-    return res.status(401).send({ message: "unauthorized access" });
-  }
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-    if (err) {
-      console.log(err);
-      return res.status(401).send({ message: "unauthorized access" });
-    }
-    req.user = decoded;
-    next();
-  });
-};
+// const verifyToken = async (req, res, next) => {
+//   const token = req.cookies?.token;
+//   console.log(req.cookies);
+//   if (!token) {
+//     return res.status(401).send({ message: "unauthorized access" });
+//   }
+//   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+//     if (err) {
+//       console.log(err);
+//       return res.status(401).send({ message: "unauthorized access" });
+//     }
+//     req.user = decoded;
+//     next();
+//   });
+// };
 
 // CONNECT TO DB
 
@@ -55,8 +54,8 @@ const client = new MongoClient(uri, {
 
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+  secure: false,
+  sameSite: "strict",
 };
 //localhost:5000 and localhost:5173 are treated as same site.  so sameSite value must be strict in development server.  in production sameSite will be none
 // in development server secure will false .  in production secure will be true
@@ -74,86 +73,90 @@ async function run() {
       .db("prodSwapDb")
       .collection("prodSwapRecommendation");
 
-    // JWT GENERATE
+   
+
     // app.post("/jwt", async (req, res) => {
     //   const user = req.body;
-    //   console.log("dynamic tokn for user", user);
+    //   console.log("I need a new jwt", user);
     //   const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
     //     expiresIn: "365d",
     //   });
-
     //   res.cookie("token", token, cookieOptions).send({ success: true });
     // });
 
+    //clearing Token
     // app.post("/logout", async (req, res) => {
     //   const user = req.body;
-    //   console.log("loogged out", user);
-    //   res.clearCookie("token", { maxAge: 0 }).send({ success: true });
+    //   console.log("logging out", user);
+    //   res
+    //     .clearCookie("token", { ...cookieOptions, maxAge: 0 })
+    //     .send({ success: true });
     // });
-
-    /////////
-
-    app.post("/jwt", async (req, res) => {
-      const user = req.body;
-      console.log("I need a new jwt", user);
-      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "365d",
-      });
-      res.cookie("token", token, cookieOptions).send({ success: true });
-    });
-
-    //clearing Token
-    app.post("/logout", async (req, res) => {
-      const user = req.body;
-      console.log("logging out", user);
-      res
-        .clearCookie("token", { ...cookieOptions, maxAge: 0 })
-        .send({ success: true });
-    });
 
     // -------------------------------------HOME
 
     // GET ALL THE POSTED QUERIES FOR HOME PAGE RECENT QUERIES
     app.get("/recent-queries", async (req, res) => {
-      const result = await queriesCollection.find().toArray();
-      const reversedResult = result.reverse();
-
-      res.send(reversedResult);
+      try {
+        // Fetch all queries from the collection
+        const result = await queriesCollection.find().toArray();
+        // Reverse the array to get the most recent queries first
+        const reversedResult = result.reverse();
+        // Send the reversed array as the response
+        res.send(reversedResult);
+      } catch (error) {
+        // Handle any errors that occur during the database operation
+        console.error("Error fetching recent queries:", error);
+        res.status(500).send("Internal Server Error");
+      }
     });
+    
 
     // --------------------------------------------------QUERIES
     // GET ALL QUERIES
     app.get("/queries", async (req, res) => {
-      console.log(req.params.email);
-
-      const cursor = queriesCollection.find();
-      const result = await cursor.toArray();
-      // const result = await craftCollection.find({ email: req.params.email }).toArray();
-      res.send(result);
+      try {
+        // Fetch all queries from the collection
+        const cursor = queriesCollection.find();
+        const result = await cursor.toArray();
+        // Send the array of queries as the response
+        res.send(result);
+      } catch (error) {
+        // Handle any errors that occur during the database operation
+        console.error("Error fetching queries:", error);
+        res.status(500).send("Internal Server Error");
+      }
     });
+    
 
     // POST THE QUERY TO DB FROM ADD QUERIES PAGE
-    app.post("/queries", async (req, res) => {
-      console.log(req.body);
-      // data coming from client site is req
-      // data going server to client is res
-      // STORE THE DATA TO DB
-      const result = await queriesCollection.insertOne(req.body);
-      console.log(result);
-      res.send(result);
+    app.post("/queries",  async (req, res) => {
+      try {
+        // Log the incoming request body
+        console.log(req.body);
+        // Store the data to the database
+        const result = await queriesCollection.insertOne(req.body);
+        // Send the result of the database operation as the response
+        res.send(result);
+      } catch (error) {
+        // Handle any errors that occur during the database operation
+        console.error("Error storing query to database:", error);
+        res.status(500).send("Internal Server Error");
+      }
     });
+    
 
     // GET A SINGLE QUERY BY ID FOR QUERY DETAILS PAGE
 
     // GET THE QUERIES BY USER EMAIL FOR MY QUERIES PAGE FOR THAT USER ONLY
-    app.get("/my-queries/:email", verifyToken, async (req, res) => {
-      const tokenEmail = req.user.email;
+    app.get("/my-queries/:email",  async (req, res) => {
+      // const tokenEmail = req.user.email;
 
       const email = req.params.email;
 
-      if (tokenEmail !== email) {
-        return res.status(403).send({ message: "Forbidden Access" });
-      }
+      // if (tokenEmail !== email) {
+      //   return res.status(403).send({ message: "Forbidden Access" });
+      // }
       const query = { "addQueriesUserInfo.email": email };
       // const result = await queriesCollection.find(query).toArray();
       const result = await queriesCollection
@@ -177,7 +180,7 @@ async function run() {
     //--------------------------------------------------------- RECOMMENDATION
 
     // POST THE RECOMMENDATION DATA TO DB
-    app.post("/recommendation", async (req, res) => {
+    app.post("/recommendation",  async (req, res) => {
       const recommendationData = req.body;
       const result = await recommendationCollection.insertOne(
         recommendationData
@@ -195,7 +198,7 @@ async function run() {
     });
 
     // GET RECOMMENDATION FOR ME
-    app.get("/recommendations-for-me/:email", async (req, res) => {
+    app.get("/recommendations-for-me/:email",  async (req, res) => {
       const email = req.params.email;
       const query = { "queryPosterUserInf.email": email };
 
@@ -204,7 +207,7 @@ async function run() {
     });
 
     // ALL RECOMMENDATIONS FOR THAT QUERY
-    app.get("/recommendations/:queryId", async (req, res) => {
+    app.get("/recommendations/:queryId",  async (req, res) => {
       const queryId = req.params.queryId;
 
       const query = { "queryPosterUserInf.queryId": queryId };
@@ -214,7 +217,7 @@ async function run() {
 
     // ----------------------------  QUERY DELETE
 
-    app.delete("/queries/:id", async (req, res) => {
+    app.delete("/queries/:id",  async (req, res) => {
       const id = req.params.id;
       console.log("Deleted id:", id);
       const result = await queriesCollection.deleteOne({
@@ -224,7 +227,7 @@ async function run() {
     });
 
     // ----------------------------  RECOMMENDATION DELETE
-    app.delete("/recommendation/:id", async (req, res) => {
+    app.delete("/recommendation/:id",  async (req, res) => {
       const id = req.params.id;
       console.log("Deleted id:", id);
       const result = await recommendationCollection.deleteOne({
