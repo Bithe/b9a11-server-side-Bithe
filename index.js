@@ -235,6 +235,38 @@ async function run() {
 
     // DELETE A QUERY FROM DB
 
+    // ----------------------------UPDATE
+// UPDATE TO SERVER
+app.put("/query/:id", async (req, res) => {
+  const id = req.params.id;
+  const filter = { _id: new ObjectId(id) };
+  const options = { upsert: true };
+  const updatedQuery = req.body;
+
+  const newUpdatedCraft = {
+    $set: {
+      productName: updatedQuery.productName,
+      productBrand: updatedQuery.productBrand,
+      productImage: updatedQuery.productImage,
+      queryTitle: updatedQuery.queryTitle,
+      boycottingReason: updatedQuery.boycottingReason, // corrected reference here
+    },
+  };
+
+  try {
+    const result = await queriesCollection.updateOne(
+      filter,
+      newUpdatedCraft,
+      options
+    );
+    res.send(result);
+  } catch (error) {
+    console.error("Error updating query:", error);
+    res.status(500).send({ message: "Error updating query. Please try again later." });
+  }
+});
+
+
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
     console.log(
