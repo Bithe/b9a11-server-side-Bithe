@@ -14,11 +14,15 @@ const port = process.env.PORT || 5000;
 // //MIDDLEWARE
 
 const corsConfig = {
-  origin: '*',
+  origin: [
+    "*",
+    "http://localhost:5174",
+    "http://localhost:5173",
+    "https://prodswap-hub.web.app",
+  ],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
-  }
-  app.use(cors(corsConfig))
+};
+app.use(cors(corsConfig));
 app.use(express.json());
 app.use(cookieParser());
 // JWT MIDDLEWARE
@@ -73,8 +77,6 @@ async function run() {
       .db("prodSwapDb")
       .collection("prodSwapRecommendation");
 
-   
-
     // app.post("/jwt", async (req, res) => {
     //   const user = req.body;
     //   console.log("I need a new jwt", user);
@@ -110,7 +112,6 @@ async function run() {
         res.status(500).send("Internal Server Error");
       }
     });
-    
 
     // --------------------------------------------------QUERIES
     // GET ALL QUERIES
@@ -127,10 +128,9 @@ async function run() {
         res.status(500).send("Internal Server Error");
       }
     });
-    
 
     // POST THE QUERY TO DB FROM ADD QUERIES PAGE
-    app.post("/queries",  async (req, res) => {
+    app.post("/queries", async (req, res) => {
       try {
         // Log the incoming request body
         console.log(req.body);
@@ -144,12 +144,11 @@ async function run() {
         res.status(500).send("Internal Server Error");
       }
     });
-    
 
     // GET A SINGLE QUERY BY ID FOR QUERY DETAILS PAGE
 
     // GET THE QUERIES BY USER EMAIL FOR MY QUERIES PAGE FOR THAT USER ONLY
-    app.get("/my-queries/:email",  async (req, res) => {
+    app.get("/my-queries/:email", async (req, res) => {
       // const tokenEmail = req.user.email;
 
       const email = req.params.email;
@@ -180,13 +179,31 @@ async function run() {
     //--------------------------------------------------------- RECOMMENDATION
 
     // POST THE RECOMMENDATION DATA TO DB
-    app.post("/recommendation",  async (req, res) => {
+    // POST THE RECOMMENDATION DATA TO DB
+    app.post("/recommendation", async (req, res) => {
       const recommendationData = req.body;
-      const result = await recommendationCollection.insertOne(
-        recommendationData
-      );
-      console.log(result);
-      res.send(result);
+
+      try {
+        // Insert the recommendation data into the database
+        const result = await recommendationCollection.insertOne(
+          recommendationData
+        );
+
+        // Increment recommendation count for the corresponding query
+        const updateStatus = await queriesCollection.updateOne(
+          { _id: new ObjectId(recommendationData.queryId) },
+          { $inc: { "addQueriesUserInfo.recommendationCount": 1 } }
+        );
+        console.log(updateStatus);
+
+        console.log(result);
+        res.send(result);
+      } catch (error) {
+        console.error("Error adding recommendation:", error);
+        res
+          .status(500)
+          .send("Error adding recommendation. Please try again later.");
+      }
     });
 
     // GET ALL THE RECOMMENDATION FOR USER FROM DB FOR MY RECOMMENDATION PAGE
@@ -198,7 +215,7 @@ async function run() {
     });
 
     // GET RECOMMENDATION FOR ME
-    app.get("/recommendations-for-me/:email",  async (req, res) => {
+    app.get("/recommendations-for-me/:email", async (req, res) => {
       const email = req.params.email;
       const query = { "queryPosterUserInf.email": email };
 
@@ -207,7 +224,7 @@ async function run() {
     });
 
     // ALL RECOMMENDATIONS FOR THAT QUERY
-    app.get("/recommendations/:queryId",  async (req, res) => {
+    app.get("/recommendations/:queryId", async (req, res) => {
       const queryId = req.params.queryId;
 
       const query = { "queryPosterUserInf.queryId": queryId };
@@ -217,7 +234,7 @@ async function run() {
 
     // ----------------------------  QUERY DELETE
 
-    app.delete("/queries/:id",  async (req, res) => {
+    app.delete("/queries/:id", async (req, res) => {
       const id = req.params.id;
       console.log("Deleted id:", id);
       const result = await queriesCollection.deleteOne({
@@ -227,7 +244,7 @@ async function run() {
     });
 
     // ----------------------------  RECOMMENDATION DELETE
-    app.delete("/recommendation/:id",  async (req, res) => {
+    app.delete("/recommendation/:id", async (req, res) => {
       const id = req.params.id;
       console.log("Deleted id:", id);
       const result = await recommendationCollection.deleteOne({
@@ -239,36 +256,40 @@ async function run() {
     // DELETE A QUERY FROM DB
 
     // ----------------------------UPDATE
-// UPDATE TO SERVER
-app.put("/query/:id", async (req, res) => {
-  const id = req.params.id;
-  const filter = { _id: new ObjectId(id) };
-  const options = { upsert: true };
-  const updatedQuery = req.body;
+    // UPDATE TO SERVER
+    app.put("/query/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updatedQuery = req.body;
 
-  const newUpdatedCraft = {
-    $set: {
-      productName: updatedQuery.productName,
-      productBrand: updatedQuery.productBrand,
-      productImage: updatedQuery.productImage,
-      queryTitle: updatedQuery.queryTitle,
-      boycottingReason: updatedQuery.boycottingReason, // corrected reference here
-    },
-  };
+      const newUpdatedCraft = {
+        $set: {
+          productName: updatedQuery.productName,
+          productBrand: updatedQuery.productBrand,
+          productImage: updatedQuery.productImage,
+          queryTitle: updatedQuery.queryTitle,
+          boycottingReason: updatedQuery.boycottingReason, // corrected reference here
+        },
+      };
 
-  try {
-    const result = await queriesCollection.updateOne(
-      filter,
-      newUpdatedCraft,
-      options
-    );
-    res.send(result);
-  } catch (error) {
-    console.error("Error updating query:", error);
-    res.status(500).send({ message: "Error updating query. Please try again later." });
-  }
-});
+      try {
+        const result = await queriesCollection.updateOne(
+          filter,
+          newUpdatedCraft,
+          options
+        );
+        res.send(result);
+      } catch (error) {
+        console.error("Error updating query:", error);
+        res
+          .status(500)
+          .send({ message: "Error updating query. Please try again later." });
+      }
+    });
 
+    // RECOMMEDNATION COUNT
+    // GET RECOMMENDATION COUNT FOR A POST
 
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
