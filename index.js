@@ -3,7 +3,7 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
-// const jwt = require("jsonwebtoken");
+const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
@@ -18,7 +18,11 @@ const corsConfig = {
     "*",
     "http://localhost:5174",
     "http://localhost:5173",
+    "http://localhost:5175",
     "https://prodswap-hub.web.app",
+    "https://prod-swap-hub-server-bgjua2g95-bithes-projects.vercel.app",
+    "https://prod-swap-hub-server.vercel.app",
+    "https://prodswap-hub.firebaseapp.com",
   ],
   credentials: true,
 };
@@ -77,23 +81,25 @@ async function run() {
       .db("prodSwapDb")
       .collection("prodSwapRecommendation");
 
-    // app.post("/jwt", async (req, res) => {
-    //   const user = req.body;
-    //   console.log("I need a new jwt", user);
-    //   const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-    //     expiresIn: "365d",
-    //   });
-    //   res.cookie("token", token, cookieOptions).send({ success: true });
-    // });
+
+      // JWT GENERATOR
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      console.log("I need a new jwt", user);
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "365d",
+      });
+      res.cookie("token", token, cookieOptions).send({ success: true });
+    });
 
     //clearing Token
-    // app.post("/logout", async (req, res) => {
-    //   const user = req.body;
-    //   console.log("logging out", user);
-    //   res
-    //     .clearCookie("token", { ...cookieOptions, maxAge: 0 })
-    //     .send({ success: true });
-    // });
+    app.post("/logout", async (req, res) => {
+      const user = req.body;
+      console.log("logging out", user);
+      res
+        .clearCookie("token", { ...cookieOptions, maxAge: 0 })
+        .send({ success: true });
+    });
 
     // -------------------------------------HOME
 
@@ -227,7 +233,7 @@ async function run() {
     app.get("/recommendations/:queryId", async (req, res) => {
       const queryId = req.params.queryId;
 
-      const query = { "queryPosterUserInf.queryId": queryId };
+      const query = { queryId: queryId };
       const result = await recommendationCollection.find(query).toArray();
       res.send(result);
     });
@@ -244,14 +250,54 @@ async function run() {
     });
 
     // ----------------------------  RECOMMENDATION DELETE
-    app.delete("/recommendation/:id", async (req, res) => {
-      const id = req.params.id;
-      console.log("Deleted id:", id);
-      const result = await recommendationCollection.deleteOne({
-        _id: new ObjectId(id),
-      });
-      res.send(result);
+    // app.delete("/recommendation/:id", async (req, res) => {
+    //   const id = req.params.id;
+    //   console.log("Deleted id:", id);
+    //   const result = await recommendationCollection.deleteOne({
+    //     _id: new ObjectId(id),
+    //   });
+    //   res.send(result);
+    // });
+
+    app.delete('/recommendation/:id', async (req, res) => {
+      try {
+        const id = req.params.id;
+        console.log('Deleted id:', id);
+    
+        // Find the recommendation to get the queryId
+        const recommendation = await recommendationCollection.findOne({
+          _id: new ObjectId(id),
+        });
+    
+        if (!recommendation) {
+          return res.status(404).send({ message: 'Recommendation not found' });
+        }
+    
+        // Delete the recommendation
+        const deleteResult = await recommendationCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+    
+        if (deleteResult.deletedCount === 1) {
+          // Decrease recommendation count for the corresponding query
+          const updateResult = await queriesCollection.updateOne(
+            { _id: new ObjectId(recommendation.queryId) },
+            { $inc: { 'addQueriesUserInfo.recommendationCount': -1 } }
+          );
+    
+          console.log('Update status:', updateResult);
+          res.send({ message: 'Recommendation deleted successfully', deleteResult, updateResult });
+        } else {
+          res.status(500).send({ message: 'Failed to delete recommendation' });
+        }
+      } catch (error) {
+        console.error('Error deleting recommendation:', error);
+        res.status(500).send({ message: 'Server error' });
+      }
     });
+
+
+
 
     // DELETE A QUERY FROM DB
 
